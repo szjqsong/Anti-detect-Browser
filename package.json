@@ -14,7 +14,8 @@
     "verify-fp": "node scripts/verify-fingerprint.js",
     "audit": "node scripts/audit-fingerprint.js",
     "verify-device": "node scripts/verify-device.js",
-    "i18n-check": "node scripts/i18n-keys.js --missing"
+    "i18n-check": "node scripts/i18n-keys.js --missing",
+    "turnstile-check": "node scripts/turnstile-check.js"
   },
   "dependencies": {
     "proxy-chain": "^2.5.0",

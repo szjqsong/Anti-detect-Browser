@@ -5,12 +5,12 @@
 ## 功能（第一階段）
 
 - 環境（Profile）管理：新建、編輯、刪除、搜尋；每個環境有獨立的 `user-data-dir`，Cookie 和快取互相隔離
-- 指紋：種子、作業系統與版本、瀏覽器品牌、CPU 核心數、語言、時區，可個別關閉 Canvas、Audio、字型、ClientRects、GPU 偽裝
+- 指紋：種子、作業系統與版本、瀏覽器品牌、CPU 核心數、語言、時區，可個別關閉 Canvas、Audio、字型、ClientRects、GPU 偽裝。Canvas 偽裝預設關閉（實測開啟會讓 Cloudflare Turnstile、Pixelscan 判定異常）
 - 代理：支援 HTTP、HTTPS、SOCKS4、SOCKS5，可帶帳號密碼（由本機轉發層補上驗證，因為核心不支援帶密碼的代理）；可一鍵檢測出口 IP
 - 時區和語言可設成「自動」，依代理出口 IP 自動對應
 - 本機 API：啟動環境後回傳 CDP `wsEndpoint`，可直接接 Puppeteer 或 Playwright
 - 智慧選種：建立環境時用 headless 核心實測種子，排除沒有 Audio 雜訊的種子，並避開其他環境已用的 Audio 種類（148 版核心只有約 6 種 Audio 雜訊）
-- 螢幕解析度與像素比、地理位置（詢問／允許／禁止，座標依代理 IP 或自訂）：透過 CDP Emulation 在引擎內覆寫。自訂螢幕時會關閉 Site Isolation，讓跨站 iframe 也套用相同的值
+- 螢幕解析度與像素比、地理位置（詢問／允許／禁止，座標依代理 IP 或自訂）：透過 CDP Emulation 在引擎內覆寫。自訂螢幕會保留 Site Isolation（實測關閉會讓 Turnstile 失敗），因此跨站 iframe 仍會讀到真實螢幕
 - 硬體預覽：顯示種子會產生的 GPU、deviceMemory 與 Audio 種類
 - 預設搜尋引擎 Google（ungoogled-chromium 預設不搜尋），以內建的純設定擴充功能實作
 - 介面語言：繁體中文、簡體中文、English
@@ -42,6 +42,7 @@ npm run dist          # 打包 release/Anti-detect-Browser-<版本>-arm64.dmg
 npm run verify-device # 驗證智慧選種、螢幕／定位覆寫、跨站 iframe 一致性、預設搜尋引擎
 npm run audit         # 指紋檢測（本機檢查＋公開檢測網站），報告存在 audit-output/
 npm run i18n-check    # 檢查簡中／英文翻譯是否齊全
+npm run turnstile-check [網址]  # 在 Turnstile 頁面上對照正版 Chrome、裸核心與各種啟動設定
 ```
 
 要升級核心時，修改 `scripts/fetch-kernel.sh` 裡的 `VERSION` 和 `SHA256`。

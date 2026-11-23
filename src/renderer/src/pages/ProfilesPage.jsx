@@ -176,6 +176,23 @@ export default function ProfilesPage({
       0: fixed
     }), 'success');
   };
+  const canvasOff = async () => {
+    const targets = selectedIds.map(id => profiles.find(x => x.id === id)).filter(p => !(p.fingerprint?.disableSpoofing || []).includes('canvas'));
+    if (!targets.length) return toast(t("選取的環境都已經關閉 Canvas 偽裝"));
+    const ok = await confirm({
+      title: t("為 {0} 個環境關閉 Canvas 偽裝", { 0: targets.length }),
+      message: t("關閉後可以通過 Cloudflare Turnstile，但這些環境的 Canvas 指紋會變成和這台電腦相同（彼此也相同）。已經登入帳號的環境，指紋突然改變可能觸發風控。"),
+      confirmText: t("關閉"),
+      danger: true
+    });
+    if (!ok) return;
+    for (const p of targets) {
+      const disableSpoofing = [...new Set([...(p.fingerprint?.disableSpoofing || []), 'canvas'])];
+      await window.api.updateProfile(p.id, { fingerprint: { disableSpoofing } });
+    }
+    await refresh();
+    toast(t("已為 {0} 個環境關閉 Canvas 偽裝", { 0: targets.length }), 'success');
+  };
   const clone = p => run(async () => {
     const {
       id,
@@ -264,6 +281,8 @@ export default function ProfilesPage({
             <Icon name="cpu" size={14} /> {t("指紋體檢")}</button>
           <button className="btn sm" onClick={fixAudio}>
             <Icon name="refresh" size={14} /> {t("修復 Audio")}</button>
+          <button className="btn sm" onClick={canvasOff}>
+            <Icon name="shield" size={14} /> {t("關閉 Canvas")}</button>
           <button className="btn sm danger" onClick={() => batch('delete')}>
             <Icon name="trash" size={14} /> {t("刪除")}</button>
           <button className="link-btn" onClick={() => setSelected(new Set())}>{t("取消選取")}</button>

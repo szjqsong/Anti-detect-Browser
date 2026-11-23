@@ -9,7 +9,7 @@ const PLATFORM_VERSIONS = {
 };
 const LANGUAGES = ['en-US', 'en-GB', 'zh-TW', 'zh-CN', 'zh-HK', 'ja-JP', 'ko-KR', 'de-DE', 'fr-FR', 'es-ES', 'pt-BR', 'ru-RU', 'it-IT', 'nl-NL'];
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Europe/Paris', 'Asia/Tokyo', 'Asia/Seoul', 'Asia/Taipei', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Singapore', 'Australia/Sydney'];
-const SPOOFING = [['canvas', 'Canvas', '每個環境的 Canvas 指紋不同，避免帳號被關聯。部分檢測站（如 Pixelscan）能察覺雜訊並判定為「偽裝」；關閉後可通過，但同一台電腦上所有環境的 Canvas 指紋會相同。'], ['gpu', 'WebGL / GPU', '隱藏真實顯示卡型號。建議保持開啟，關閉會暴露真實硬體（虛擬機會顯示 Paravirtual device）。'], ['audio', 'Audio', 'AudioContext 指紋雜訊。'], ['font', '字型', '字型列表與度量雜訊。'], ['clientrects', 'ClientRects', '元素尺寸量測雜訊。']];
+const SPOOFING = [['canvas', 'Canvas', '每個環境的 Canvas 指紋不同，避免帳號被關聯。實測開啟後 Cloudflare Turnstile 與 Pixelscan 會判定異常，因此新環境預設關閉；關閉時，同一台電腦上所有環境的 Canvas 指紋相同。'], ['gpu', 'WebGL / GPU', '隱藏真實顯示卡型號。建議保持開啟，關閉會暴露真實硬體（虛擬機會顯示 Paravirtual device）。'], ['audio', 'Audio', 'AudioContext 指紋雜訊。'], ['font', '字型', '字型列表與度量雜訊。'], ['clientrects', 'ClientRects', '元素尺寸量測雜訊。']];
 const TABS = [['basic', '基本資訊'], ['proxy', '代理'], ['fingerprint', '指紋'], ['device', '裝置與硬體'], ['advanced', '進階']];
 const SCREEN_PRESETS = {
   windows: [[1920, 1080, 1], [1536, 864, 1.25], [1366, 768, 1], [2560, 1440, 1], [1440, 900, 1], [1280, 720, 1.5]],
@@ -486,8 +486,8 @@ export default function ProfileDrawer({
                       <div className="alert warn">
                         <Icon name="warning" size={16} />
                         <div>
-                          <b>{t("自訂螢幕會關閉 Site Isolation（站點隔離）")}</b>
-                          <div>{t("螢幕覆寫無法套用到跨站 iframe 的獨立程序，不關閉的話，嵌入的 iframe 會讀到真實螢幕而露出破綻。關閉後，不同網站可能在同一個程序中執行，對 Spectre 類旁路攻擊的防護會降低。")}</div>
+                          <b>{t("自訂螢幕的限制")}</b>
+                          <div>{t("螢幕覆寫只作用在主頁面與同站 iframe；跨站 iframe（例如嵌入的廣告或第三方登入框）仍會讀到真實螢幕。為了通過 Cloudflare 等人機驗證，不會關閉 Site Isolation（實測關閉後 Turnstile 會失敗）。")}</div>
                         </div>
                       </div>
                     </> : <div className="field-hint">{t("使用電腦的真實螢幕解析度與像素比，不做任何覆寫。")}</div>}

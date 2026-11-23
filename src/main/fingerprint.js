@@ -47,7 +47,9 @@ function generateFingerprint(platform) {
     hardwareConcurrency: pick(CORE_CHOICES),
     language: 'auto', // 'auto' = derive from proxy exit country
     timezone: 'auto', // 'auto' = derive from proxy exit IP
-    disableSpoofing: [], // subset of: font, audio, canvas, clientrects, gpu
+    // Canvas noise is detected by Cloudflare Turnstile and Pixelscan (tested), so it is
+    // off by default; the other seed-derived signals still differ per profile.
+    disableSpoofing: ['canvas'], // subset of: font, audio, canvas, clientrects, gpu
     // 'real' keeps the host screen; a different OS gets a plausible screen for that OS.
     screen: p === hostPlatform() ? { mode: 'real' } : randomScreen(p),
     // Coordinates are always overridden so the OS's real location is never exposed.

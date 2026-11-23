@@ -74,16 +74,9 @@ function buildArgs(profile, ctx) {
       const h = Math.min(860, ctx.screen.height - 60);
       args.push('--window-position=0,0', `--window-size=${w},${h}`);
     }
-    // CDP screen emulation only reaches top-level frames. Cross-site iframes run in
-    // their own process (site isolation) and would still see the real screen, so
-    // keep them in-process. Merge with any user --disable-features (last one wins).
-    const features = new Set(['IsolateOrigins', 'site-per-process']);
-    extra = extra.filter((a) => {
-      if (!a.startsWith('--disable-features=')) return true;
-      a.slice('--disable-features='.length).split(',').filter(Boolean).forEach((f) => features.add(f));
-      return false;
-    });
-    args.push('--disable-site-isolation-trials', `--disable-features=${[...features].join(',')}`);
+    // Site isolation stays ON: disabling it is detected by Cloudflare Turnstile
+    // (tested). Trade-off: CDP screen emulation cannot reach out-of-process
+    // (cross-site) iframes, so those still report the real screen.
   }
   // Built-in extensions (e.g. default search engine) merged with any user
   // --load-extension, since only the last occurrence of a switch is used.
