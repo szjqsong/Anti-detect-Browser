@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('api', {
   stopProfile: (id) => call('profiles:stop', id),
   generateFingerprint: (platform) => call('fingerprint:generate', platform),
   randomSeed: () => call('fingerprint:seed'),
+  smartSeed: (fp, excludeId) => call('fingerprint:smartSeed', fp, excludeId),
+  probeFingerprint: (fp, excludeId) => call('fingerprint:probe', fp, excludeId),
   checkProxy: (proxy) => call('proxy:check', proxy),
   getSettings: () => call('settings:get'),
   updateSettings: (patch) => call('settings:update', patch),

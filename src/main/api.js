@@ -33,11 +33,11 @@ function readBody(req) {
   });
 }
 
-function createApiServer({ store, launcher }) {
+function createApiServer({ store, launcher, prepareProfile = async (x) => x }) {
   const routes = [
     ['GET', /^\/api\/v1\/profiles$/, () => store.listProfiles().map((p) => publicProfile(p, launcher.status(p.id)))],
     ['POST', /^\/api\/v1\/profiles$/, async (req) => {
-      const p = store.createProfile(await readBody(req));
+      const p = store.createProfile(await prepareProfile(await readBody(req)));
       return publicProfile(p, launcher.status(p.id));
     }],
     ['GET', /^\/api\/v1\/profiles\/([\w-]+)$/, (req, [id]) => {

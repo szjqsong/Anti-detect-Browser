@@ -12,11 +12,14 @@ app.setPath('userData', dataDir);
 
 const { Store } = require('../src/main/store');
 const store = new Store(dataDir);
-store.updateSettings({ apiPort: 54399 });
+store.updateSettings({ apiPort: 54399, language: process.env.UI_LANG || '' });
+// Probe results mirroring the user's report: seeds 100001 and 300003 share an audio bucket.
+const probe = (audioHash, extra = {}) => ({ audioHash, gpuRenderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)', gpuVendor: 'Google Inc. (Apple)', deviceMemory: 16, ...extra });
 const demo = [
-  { name: '美國店舖-01', group: 'Amazon US', notes: 'seller central', proxy: 'socks5://u:p@203.0.113.10:1080', fingerprint: { platform: 'macos' } },
-  { name: '美國店舖-02', group: 'Amazon US', proxy: 'http://198.51.100.22:8000', fingerprint: { platform: 'macos' } },
-  { name: '德國站', group: 'Amazon EU', notes: 'DE marketplace', proxy: '192.0.2.44:9000:user:pw', fingerprint: { platform: 'windows' } },
+  { name: '美國店舖-01', group: 'Amazon US', notes: 'seller central', proxy: 'socks5://u:p@203.0.113.10:1080', fingerprint: { platform: 'macos', seed: 100001, probe: probe('0fd9739f94cc41f5') } },
+  { name: '美國店舖-02', group: 'Amazon US', proxy: 'http://198.51.100.22:8000', fingerprint: { platform: 'macos', seed: 200002, probe: probe('f76bc24abf063a8a') } },
+  { name: '德國站', group: 'Amazon EU', notes: 'DE marketplace', proxy: '192.0.2.44:9000:user:pw', fingerprint: { platform: 'windows', seed: 300003, probe: probe('0fd9739f94cc41f5') } },
+  { name: '日本站', group: 'Amazon EU', fingerprint: { platform: 'macos', seed: 6, probe: probe('ce2c0c6216ae4270', { audioNoNoise: true }) } },
   { name: '社群帳號 A', group: '社群', fingerprint: { platform: 'macos' } },
   { name: '測試環境', fingerprint: { platform: 'linux' } },
 ];
@@ -35,8 +38,18 @@ app.on('browser-window-created', (_e, win) => {
       const img = await win.webContents.capturePage();
       fs.writeFileSync(path.join(outDir, `${name}.png`), img.toPNG());
     };
-    const click = (text) =>
-      js(`[...document.querySelectorAll('button')].find(b => b.textContent.trim().includes(${JSON.stringify(text)}))?.click()`);
+    // Button labels are written in zh-TW here and translated with the UI's own dictionary.
+    const lang = process.env.UI_LANG;
+    const localeFile = lang && path.join(__dirname, '..', 'src', 'renderer', 'src', 'locales', `${lang}.js`);
+    const dict = localeFile && fs.existsSync(localeFile)
+      ? (0, eval)(fs.readFileSync(localeFile, 'utf8').replace(/^export default/m, '(').replace(/;\s*$/, '') + ')')
+      : {};
+    const click = (text) => {
+      const label = dict[text] ?? text;
+      // exact match first, then substring
+      return js(`(() => { const bs = [...document.querySelectorAll('button')]; const l = ${JSON.stringify(label)};
+        (bs.find(b => b.textContent.trim() === l) || bs.find(b => b.textContent.trim().includes(l)))?.click(); })()`);
+    };
     try {
       await sleep(800);
       await shot('1-profiles');
@@ -44,13 +57,22 @@ app.on('browser-window-created', (_e, win) => {
       await shot('2-batch');
       await js(`document.querySelectorAll('tbody input[type=checkbox]')[0].click(); document.querySelectorAll('tbody input[type=checkbox]')[1].click();`);
       await click('新建環境');
-      await sleep(400);
+      await sleep(7000); // smart seed probes the kernel
+      await shot('3a-drawer-new-smartseed');
       await shot('3-drawer-basic');
       await click('指紋');
       await click('Windows');
       await shot('4-drawer-fingerprint-mismatch');
       await click('進階');
       await shot('5-drawer-advanced');
+      await click('裝置與硬體');
+      await shot('5b-device');
+      await click('自訂');
+      await shot('5c-device-custom-screen');
+      await click('檢測');
+      await sleep(6000);
+      await js(`document.querySelector('.drawer-main').closest('.drawer-body').scrollTop = 99999`);
+      await shot('5d-device-probed');
       await click('取消');
       await click('分組管理');
       await shot('6-groups');

@@ -1,40 +1,11 @@
 // Starts/stops one kernel process per profile and tracks them.
 const { spawn } = require('child_process');
-const http = require('http');
 const { EventEmitter } = require('events');
 const { resolveExecutable, buildArgs, buildEnv } = require('./kernel');
 const { normalizeProxy, startForwarder, lookupGeo, getFreePort } = require('./proxy');
-
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(url, (res) => {
-      let body = '';
-      res.on('data', (c) => (body += c));
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(body));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-    req.setTimeout(2000, () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
-  });
-}
-
-async function waitForDebugger(port, proc, timeoutMs = 20000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (proc.exitCode !== null) throw new Error(`Kernel exited early (code ${proc.exitCode})`);
-    try {
-      return await fetchJson(`http://127.0.0.1:${port}/json/version`);
-    } catch {
-      await new Promise((r) => setTimeout(r, 300));
-    }
-  }
-  throw new Error('Timed out waiting for the browser DevTools endpoint');
-}
+const { waitForDebugger } = require('./cdp');
+const { startEmulation } = require('./emulation');
+const { withDefaults } = require('./fingerprint');
 
 class Launcher extends EventEmitter {
   /**
@@ -47,6 +18,7 @@ class Launcher extends EventEmitter {
     super();
     this.store = store;
     this.bundledKernel = opts.bundledKernel || null;
+    this.extensionsDir = opts.extensionsDir || null;
     this.running = new Map(); // id -> { proc, forwarder, debugPort, wsEndpoint, geo }
     this.starting = new Set();
   }
@@ -64,6 +36,24 @@ class Launcher extends EventEmitter {
     return out;
   }
 
+  /** Executable + type actually used to launch (bundled kernel when no custom path). */
+  kernel() {
+    const settings = this.store.getSettings();
+    const useBundled = !settings.kernelPath && this.bundledKernel;
+    return {
+      exe: resolveExecutable(useBundled ? this.bundledKernel : settings.kernelPath),
+      kernelType: useBundled ? 'fingerprint-chromium' : settings.kernelType,
+      kernelId: useBundled ? `bundled:${this.bundledKernel}` : `custom:${settings.kernelPath}`,
+    };
+  }
+
+  builtinExtensions() {
+    const settings = this.store.getSettings();
+    if (!this.extensionsDir || settings.defaultSearch === 'kernel') return [];
+    const dir = require('path').join(this.extensionsDir, 'google-search');
+    return require('fs').existsSync(dir) ? [dir] : [];
+  }
+
   _emit(id) {
     this.emit('status', id, this.status(id));
   }
@@ -78,19 +68,16 @@ class Launcher extends EventEmitter {
     this._emit(id);
     let forwarder = null;
     try {
-      const settings = this.store.getSettings();
-      // No custom path -> bundled fingerprint-chromium (always fingerprint mode).
-      const useBundled = !settings.kernelPath && this.bundledKernel;
-      const exe = resolveExecutable(useBundled ? this.bundledKernel : settings.kernelPath);
-      const kernelType = useBundled ? 'fingerprint-chromium' : settings.kernelType;
-      const fp = profile.fingerprint || {};
+      const { exe, kernelType } = this.kernel();
+      const fp = withDefaults(profile.fingerprint);
 
       const upstream = normalizeProxy(profile.proxy);
       if (upstream) forwarder = await startForwarder(upstream);
 
       // Resolve "auto" timezone/language from the exit IP so they match the proxy.
       let geo = null;
-      const needsGeo = fp.timezone === 'auto' || fp.language === 'auto';
+      const geoAuto = fp.geolocation.permission !== 'block' && fp.geolocation.source === 'auto';
+      const needsGeo = fp.timezone === 'auto' || fp.language === 'auto' || geoAuto;
       if (needsGeo) {
         try {
           geo = await lookupGeo(forwarder ? forwarder.url : null);
@@ -102,6 +89,20 @@ class Launcher extends EventEmitter {
       const timezone = fp.timezone === 'auto' ? geo?.timezone || null : fp.timezone || null;
       const language = fp.language === 'auto' ? geo?.language || null : fp.language || null;
 
+      // Geolocation is always overridden (unless blocked) so the OS location never leaks.
+      let geolocation = null;
+      if (fp.geolocation.permission !== 'block') {
+        const g = fp.geolocation;
+        const lat = g.source === 'custom' ? Number(g.latitude) : geo?.latitude;
+        const lon = g.source === 'custom' ? Number(g.longitude) : geo?.longitude;
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          geolocation = { latitude: lat, longitude: lon, accuracy: Number(g.accuracy) || 50 };
+        }
+      }
+      const screen = fp.screen.mode === 'custom'
+        ? { width: Number(fp.screen.width), height: Number(fp.screen.height), dpr: Number(fp.screen.dpr) || 1 }
+        : null;
+
       const debugPort = await getFreePort();
       const ctx = {
         kernelType,
@@ -110,19 +111,30 @@ class Launcher extends EventEmitter {
         proxyUrl: forwarder ? forwarder.url : null,
         timezone,
         language,
+        screen,
+        extensions: this.builtinExtensions(),
       };
-      const proc = spawn(exe, buildArgs(profile, ctx), { env: buildEnv(ctx), stdio: 'ignore' });
+      const proc = spawn(exe, buildArgs({ ...profile, fingerprint: fp }, ctx), { env: buildEnv(ctx), stdio: 'ignore' });
       proc.on('error', () => {}); // surfaced via waitForDebugger / exit
-      const entry = { proc, forwarder, debugPort, wsEndpoint: null, geo };
+      const entry = { proc, forwarder, debugPort, wsEndpoint: null, geo, emulation: null };
 
       proc.on('exit', () => {
         if (this.running.get(id) === entry) this.running.delete(id);
+        if (entry.emulation) entry.emulation.close();
         if (forwarder) forwarder.close().catch(() => {});
         this._emit(id);
       });
 
       const version = await waitForDebugger(debugPort, proc);
       entry.wsEndpoint = version.webSocketDebuggerUrl;
+      try {
+        entry.emulation = await startEmulation(entry.wsEndpoint,
+          { screen, geolocation, geoPermission: fp.geolocation.permission },
+          profile.startUrls || []);
+      } catch (err) {
+        proc.kill('SIGKILL');
+        throw new Error(`Failed to apply screen/geolocation overrides: ${err.message}`);
+      }
       this.running.set(id, entry);
       this.starting.delete(id);
       this.store.updateProfile(id, { lastOpenedAt: new Date().toISOString() });

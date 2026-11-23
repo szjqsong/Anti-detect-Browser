@@ -10,6 +10,8 @@ const DEFAULT_SETTINGS = {
   kernelPath: '',
   apiPort: 54345,
   apiKey: '',
+  defaultSearch: 'google', // 'google' | 'kernel' (kernel default: "No Search" on ungoogled-chromium)
+  language: '', // '' = follow system; 'zh-TW' | 'zh-CN' | 'en'
 };
 
 class Store {

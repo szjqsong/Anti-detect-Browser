@@ -12,10 +12,13 @@
     "dist": "bash scripts/fetch-kernel.sh && vite build && electron-builder --mac",
     "fetch-kernel": "bash scripts/fetch-kernel.sh",
     "verify-fp": "node scripts/verify-fingerprint.js",
-    "audit": "node scripts/audit-fingerprint.js"
+    "audit": "node scripts/audit-fingerprint.js",
+    "verify-device": "node scripts/verify-device.js",
+    "i18n-check": "node scripts/i18n-keys.js --missing"
   },
   "dependencies": {
-    "proxy-chain": "^2.5.0"
+    "proxy-chain": "^2.5.0",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

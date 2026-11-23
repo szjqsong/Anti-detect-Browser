@@ -66,11 +66,39 @@ function buildArgs(profile, ctx) {
     args.push('--force-webrtc-ip-handling-policy=disable_non_proxied_udp');
   }
 
-  for (const a of profile.extraArgs || []) {
-    if (typeof a === 'string' && a.trim()) args.push(a.trim());
+  let extra = (profile.extraArgs || []).filter((a) => typeof a === 'string' && a.trim()).map((a) => a.trim());
+  if (ctx.screen) {
+    // Keep the window inside the emulated screen, otherwise outerWidth > screen.width.
+    if (!extra.some((a) => a.startsWith('--window-size'))) {
+      const w = Math.min(1280, ctx.screen.width);
+      const h = Math.min(860, ctx.screen.height - 60);
+      args.push('--window-position=0,0', `--window-size=${w},${h}`);
+    }
+    // CDP screen emulation only reaches top-level frames. Cross-site iframes run in
+    // their own process (site isolation) and would still see the real screen, so
+    // keep them in-process. Merge with any user --disable-features (last one wins).
+    const features = new Set(['IsolateOrigins', 'site-per-process']);
+    extra = extra.filter((a) => {
+      if (!a.startsWith('--disable-features=')) return true;
+      a.slice('--disable-features='.length).split(',').filter(Boolean).forEach((f) => features.add(f));
+      return false;
+    });
+    args.push('--disable-site-isolation-trials', `--disable-features=${[...features].join(',')}`);
   }
-  const urls = (profile.startUrls || []).filter(Boolean);
-  args.push(...(urls.length ? urls : ['about:blank']));
+  // Built-in extensions (e.g. default search engine) merged with any user
+  // --load-extension, since only the last occurrence of a switch is used.
+  if (ctx.extensions && ctx.extensions.length) {
+    const exts = [...ctx.extensions];
+    extra = extra.filter((a) => {
+      if (!a.startsWith('--load-extension=')) return true;
+      exts.push(...a.slice('--load-extension='.length).split(',').filter(Boolean));
+      return false;
+    });
+    args.push(`--load-extension=${exts.join(',')}`);
+  }
+  args.push(...extra);
+  // Start URLs are opened by the emulation layer once overrides are applied.
+  args.push('about:blank');
   return args;
 }
 

@@ -105,7 +105,7 @@ function languageForCountry(code) {
  * Uses ip-api.com (free tier, HTTP only).
  */
 function lookupGeo(localProxyUrl, timeoutMs = 10000) {
-  const target = 'http://ip-api.com/json/?fields=status,message,query,country,countryCode,city,timezone';
+  const target = 'http://ip-api.com/json/?fields=status,message,query,country,countryCode,city,timezone,lat,lon';
   return new Promise((resolve, reject) => {
     let opts;
     if (localProxyUrl) {
@@ -127,6 +127,8 @@ function lookupGeo(localProxyUrl, timeoutMs = 10000) {
             countryCode: j.countryCode,
             city: j.city,
             timezone: j.timezone,
+            latitude: j.lat,
+            longitude: j.lon,
             language: languageForCountry(j.countryCode),
           });
         } catch {

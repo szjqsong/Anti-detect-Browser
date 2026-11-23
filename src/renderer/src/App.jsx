@@ -1,3 +1,4 @@
+import { t, resolveLanguage, setLanguage } from './i18n.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import Icon from './components/Icon.jsx';
 import { ConfirmProvider, ToastProvider } from './components/ui.jsx';
@@ -5,37 +6,38 @@ import ProfilesPage from './pages/ProfilesPage.jsx';
 import GroupsPage from './pages/GroupsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import ApiPage from './pages/ApiPage.jsx';
-
-const NAV = [
-  ['profiles', 'profiles', '環境管理'],
-  ['groups', 'folder', '分組管理'],
-  ['api', 'code', 'API 與自動化'],
-  ['settings', 'settings', '系統設定'],
-];
-
+const NAV = [['profiles', 'profiles', '環境管理'], ['groups', 'folder', '分組管理'], ['api', 'code', 'API 與自動化'], ['settings', 'settings', '系統設定']];
 function Shell() {
   const [page, setPage] = useState('profiles');
   const [profiles, setProfiles] = useState([]);
   const [status, setStatus] = useState({});
   const [settings, setSettings] = useState(null);
-
   const refresh = useCallback(async () => {
     const [res, s] = await Promise.all([window.api.listProfiles(), window.api.getSettings()]);
     setProfiles(res.profiles);
     setStatus(res.status);
     setSettings(s);
   }, []);
-
   useEffect(() => {
     refresh();
-    return window.api.onStatus((id, s) => setStatus((prev) => ({ ...prev, [id]: s })));
+    return window.api.onStatus((id, s) => setStatus(prev => ({
+      ...prev,
+      [id]: s
+    })));
   }, [refresh]);
-
-  const running = Object.values(status).filter((s) => s.state === 'running').length;
-  const ctx = { profiles, status, settings, refresh, setPage };
-
-  return (
-    <div className="shell">
+  // Language must be set before any child renders, since t() reads it synchronously.
+  const lang = settings ? resolveLanguage(settings.language, settings.systemLocale) : null;
+  if (lang) setLanguage(lang);
+  const running = Object.values(status).filter(s => s.state === 'running').length;
+  const ctx = {
+    profiles,
+    status,
+    settings,
+    refresh,
+    setPage
+  };
+  if (!settings) return null;
+  return <div className="shell" key={lang}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
@@ -57,30 +59,28 @@ function Shell() {
           </div>
         </div>
         <nav>
-          {NAV.map(([key, icon, label]) => (
-            <button key={key} className={`nav-item ${page === key ? 'active' : ''}`} onClick={() => setPage(key)}>
+          {NAV.map(([key, icon, label]) => <button key={key} className={`nav-item ${page === key ? 'active' : ''}`} onClick={() => setPage(key)}>
               <Icon name={icon} size={18} />
-              <span>{label}</span>
+              <span>{t(label)}</span>
               {key === 'profiles' && <span className="nav-count">{profiles.length}</span>}
-            </button>
-          ))}
+            </button>)}
         </nav>
         <div className="sidebar-foot">
           <div className="foot-row">
             <span className={`dot ${running ? 'green' : ''}`} />
-            {running ? `${running} 個環境執行中` : '沒有執行中的環境'}
+            {running ? t("{0} 個環境執行中", {
+            0: running
+          }) : t("沒有執行中的環境")}
           </div>
           <div className="foot-row">
             <Icon name="cpu" size={14} />
-            {settings?.kernelPath
-              ? '自訂核心'
-              : settings?.bundledKernel
-                ? `核心 ${settings.bundledKernel.version.split('.')[0]}`
-                : '未設定核心'}
+            {settings?.kernelPath ? t("自訂核心") : settings?.bundledKernel ? t("核心 {0}", {
+            0: settings.bundledKernel.version.split('.')[0]
+          }) : t("未設定核心")}
           </div>
           <div className="foot-row">
             <span className={`dot ${settings?.apiError ? 'red' : 'green'}`} />
-            API {settings?.apiError ? '異常' : `:${settings?.apiPort ?? ''}`}
+            API {settings?.apiError ? t("異常") : `:${settings?.apiPort ?? ''}`}
           </div>
         </div>
       </aside>
@@ -91,16 +91,12 @@ function Shell() {
         {page === 'api' && <ApiPage {...ctx} />}
         {page === 'settings' && <SettingsPage {...ctx} />}
       </main>
-    </div>
-  );
+    </div>;
 }
-
 export default function App() {
-  return (
-    <ToastProvider>
+  return <ToastProvider>
       <ConfirmProvider>
         <Shell />
       </ConfirmProvider>
-    </ToastProvider>
-  );
+    </ToastProvider>;
 }

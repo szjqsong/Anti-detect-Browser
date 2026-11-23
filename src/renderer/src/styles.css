@@ -354,3 +354,17 @@ nav { display: flex; flex-direction: column; gap: 2px; }
   .drawer-side { position: static; }
   .search input { width: 200px; }
 }
+
+/* ---------- device tab ---------- */
+.section { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.section + .section { border-top: 1px solid var(--border); padding-top: 16px; }
+.section-title-row { display: flex; align-items: center; justify-content: space-between; }
+.section-title-row .section-title { margin: 0; }
+.form-grid.tight { gap: 10px 14px; }
+.probe-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--surface-2); font-size: 13px; }
+.small-text { font-size: 11.5px; word-break: break-all; }
+.ok-text { color: var(--green); font-weight: 600; }
+.warn-text { color: var(--amber); font-weight: 600; }
+.bad-text { color: var(--red); font-weight: 600; }
+.audio-flag { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; color: var(--amber); font-size: 11.5px; font-weight: 600; }
+.audio-flag.bad { color: var(--red); }

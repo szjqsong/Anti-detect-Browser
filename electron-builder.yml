@@ -16,6 +16,9 @@ extraResources:
   - from: vendor/kernel
     to: kernel
     filter: ["**/*"]
+  # Manifest-only extension that makes Google the default search engine
+  - from: build/extensions
+    to: extensions
 mac:
   category: public.app-category.productivity
   icon: build/icon.png

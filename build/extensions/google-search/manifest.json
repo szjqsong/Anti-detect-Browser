@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Default Search: Google",
+  "version": "1.0.0",
+  "description": "Sets Google as the default search engine.",
+  "chrome_settings_overrides": {
+    "search_provider": {
+      "name": "Google",
+      "keyword": "google.com",
+      "search_url": "https://www.google.com/search?q={searchTerms}",
+      "suggest_url": "https://www.google.com/complete/search?client=chrome&q={searchTerms}",
+      "favicon_url": "https://www.google.com/favicon.ico",
+      "encoding": "UTF-8",
+      "is_default": true
+    }
+  }
+}
