@@ -1,0 +1,42 @@
+appId: local.antidetect.browser
+productName: Anti-detect Browser
+directories:
+  output: release
+  buildResources: build
+files:
+  - package.json
+  - src/main/**
+  - src/preload/**
+  - dist/renderer/**
+  - "!**/*.map"
+asar: true
+afterPack: build/adhoc-sign.js
+# Bundled fingerprint-chromium kernel (fetch with: npm run fetch-kernel)
+extraResources:
+  - from: vendor/kernel
+    to: kernel
+    filter: ["**/*"]
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch: [arm64]
+  # No Developer ID: skip builder signing; build/adhoc-sign.js ad-hoc signs instead.
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+dmg:
+  title: "Anti-detect Browser"
+  artifactName: "Anti-detect-Browser-${version}-${arch}.dmg"
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
